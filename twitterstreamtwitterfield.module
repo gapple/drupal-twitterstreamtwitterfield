@@ -1,0 +1,59 @@
+<?php
+
+
+/**
+ * Implements hook_twitterstream_params().
+ *
+ * Get all text fields that use the Twitterfield Widget and add their values
+ * to the parameters for TwitterStream.
+ *
+ * @TODO Make fields to check configurable.
+ */
+function twitterstreamtwitterfield_twitterstream_params() {
+  $track = array();
+  $follow = array();
+
+  $text_fields = field_info_fields();
+  foreach ($text_fields as $field_name => $info) {
+    if ($info['type'] == 'text') {
+      foreach ($info['bundles'] as $entity_type => $bundles) {
+        foreach ($bundles as $bundle_name) {
+          $field_instance = field_info_instance($entity_type, $field_name, $bundle_name);
+
+          if ($field_instance['widget']['type'] == 'twitterfield') {
+            $query = new EntityFieldQuery();
+            $query->entityCondition('entity_type', $entity_type)
+              ->entityCondition('bundle', $bundle_name)
+              ->fieldCondition($field_name, 'value', '', '<>');
+            $result = $query->execute();
+
+            if (!empty($result[$entity_type])) {
+              $entity_ids = array_keys($result[$entity_type]);
+              $entities = entity_load_multiple_by_name($entity_type, $entity_ids);
+
+              foreach ($entities as $entity_id => $entity) {
+                $entity_wrapper = entity_metadata_wrapper($entity_type, $entity);
+                $entity_field_wrapper = $entity_wrapper->{$field_name};
+                // TODO handle multiple value fields.
+                $value = $entity_field_wrapper->value();
+                if (twitterfield_is_username($value)) {
+                  $account_id = twitterstream_account_id_from_name($value);
+                  if (!empty($account_id)) {
+                    $follow[$value] = $account_id;
+                  }
+                }
+                else if (twitterfield_is_hashtag($value) || twitterfield_is_search($value)) {
+                  $track[] = $value;
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  return array(
+    'twitterstreamtwitterfield' => compact('track', 'follow'),
+  );
+}

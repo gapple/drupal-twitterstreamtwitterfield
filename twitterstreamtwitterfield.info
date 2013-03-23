@@ -1,0 +1,6 @@
+name = TwitterStream Twitterfield
+description = "Use values from Twitterfield fields for listening configuration"
+core = 7.x
+
+dependencies[] = twitterstream
+dependencies[] = twitterfield
